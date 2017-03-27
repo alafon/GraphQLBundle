@@ -62,6 +62,15 @@ class TypeGenerator extends BaseTypeGenerator
 EOF;
     }
 
+    protected function generateOutputFields(array $config)
+    {
+        $outputFieldsCode = sprintf(
+            '$this->applyExposeFilters(%s)',
+            $this->processFromArray($config['fields'], 'OutputField')
+        );
+        return sprintf(static::$closureTemplate, '', $outputFieldsCode);
+    }
+
     protected function generateClosureUseStatements(array $config)
     {
         return 'use ('.static::USE_FOR_CLOSURES.') ';
@@ -70,6 +79,43 @@ EOF;
     protected function resolveTypeCode($alias)
     {
         return  sprintf('$container->get(\'%s\')->resolve(%s)', 'overblog_graphql.type_resolver', var_export($alias, true));
+    }
+
+    protected function generateExpose(array $value)
+    {
+        $exposeIsSet = $this->arrayKeyExistsAndIsNotNull($value, 'expose');
+        $fieldOptions = $value;
+        if (!$this->arrayKeyExistsAndIsNotNull($fieldOptions, 'expose')) {
+            $fieldOptions['expose'] = function () {
+
+                return true;
+            };
+        }
+
+        if ($exposeIsSet && false === $fieldOptions['expose']) { // access deny to this field
+            $exceptionClass = $this->shortenClassName('\\Overblog\\GraphQLBundle\\Error\\UserWarning');
+
+            return sprintf('function () { throw new %s(\'Access denied to this field.\'); }', $exceptionClass);
+        } else {
+
+            $exposeCallback = $this->callableCallbackFromArrayValue($fieldOptions, 'expose');
+
+            if ('null' === $exposeCallback) {
+
+                return $exposeCallback;
+            }
+
+            $code = <<<'CODE'
+function () <closureUseStatements> {
+<spaces><spaces>$exposeCallback = %s;
+<spaces><spaces>return call_user_func($exposeCallback);
+<spaces>}
+CODE;
+
+            $code = sprintf($code, $exposeCallback);
+
+            return $code;
+        }
     }
 
     protected function generateResolve(array $value)

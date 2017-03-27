@@ -30,7 +30,38 @@ class Executor implements ExecutorInterface
      */
     public function execute(Schema $schema, $requestString, $rootValue = null, $contextValue = null, $variableValues = null, $operationName = null)
     {
-        return call_user_func_array('GraphQL\GraphQL::executeAndReturnResult', func_get_args());
+        //var_dump($requestString);
+
+        //var_dump($schema->getType('Movie')->config['fields']); // Closure returns an array
+
+        foreach ($schema->getTypeMap() as $typeName => $type) {
+            if ($type instanceof \Overblog\GraphQLBundle\__DEFINITIONS__\MovieType) {
+                if (is_callable($type->config['fields'])) {
+                    $fields = call_user_func($type->config['fields']);
+                    $newConfig = $type->config;
+                    $hasChanged = false;
+                    foreach ($fields as $fieldName => $field) {
+                        $expose = $field['expose'] ?? true;
+                        if (is_callable($expose)) {
+                            $expose = call_user_func($expose);
+                        }
+                        if (!$expose) {
+                            $hasChanged = true;
+                            unset($newConfig['fields'][$fieldName]);
+                            $className = get_class($type);
+                        }
+                    }
+                    if ($hasChanged) {
+                        $newType = new $className($newConfig);
+                    }
+                }
+            }
+        }
+
+        //var_dump(array_keys(get_object_vars($schema->getType('Movie'))));
+        $result = call_user_func_array('GraphQL\GraphQL::executeAndReturnResult', func_get_args());
+        return $result;
+        //var_dump($result); // \GraphQL\Executor\Promise\Promise
     }
 
     /**

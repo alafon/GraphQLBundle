@@ -27,4 +27,19 @@
 <spaces><spaces>$class = substr(strrchr(__CLASS__, "\\"), 1);
 <spaces><spaces>return substr($class, 0, -4);
 <spaces>}
+
+<spaces>private static function applyExposeFilters($fields)
+<spaces>{
+<spaces><spaces>$filtered = [];
+<spaces><spaces>foreach ($fields as $fieldName => $field) {
+<spaces><spaces><spaces>$expose = $field['expose'] ?? true;
+<spaces><spaces><spaces>if (is_callable($expose)) {
+<spaces><spaces><spaces><spaces>$expose = call_user_func($expose);
+<spaces><spaces><spaces>}
+<spaces><spaces><spaces>if ($expose) {
+<spaces><spaces><spaces><spaces>$filtered[$fieldName] = $field;
+<spaces><spaces><spaces>}
+<spaces><spaces>}
+<spaces><spaces>return $filtered;
+<spaces>}
 }
